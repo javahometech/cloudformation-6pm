@@ -1,0 +1,191 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "InstanceType": {
+      "Type": "String",
+      "Default": "t2.micro",
+      "AllowedValues": [
+        "t2.micro",
+        "m1.small",
+        "m1.large"
+      ],
+      "Description": "Choose Instance Type"
+    },
+    "InstanceKey": {
+      "Type": "String",
+      "Default": "javahome",
+      "Description": "Choose Key File"
+    },
+    "VpcCIDRBlock": {
+      "Type": "String",
+      "Default": "190.17.0.0/16",
+      "Description": "Choose CIDR for Vpc"
+    },
+    "Subnet1CIDRBlock": {
+      "Type": "String",
+      "Default": "190.17.1.0/24",
+      "Description": "Choose CIDR for Subnet1"
+    },
+    "Subnet2CIDRBlock": {
+      "Type": "String",
+      "Default": "190.17.2.0/24",
+      "Description": "Choose CIDR for Subnet2"
+    },
+    "InstanceAMI": {
+      "Type": "String",
+      "Default": "ami-f2d3638a",
+      "Description": "Choose AMI for EC2 instance"
+    }
+  },
+  "Resources": {
+    "myVPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "VpcCIDRBlock"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "CFVPC"
+          }
+        ]
+      }
+    },
+    "Subnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "myVPC"
+        },
+        "CidrBlock": {
+          "Ref": "Subnet1CIDRBlock"
+        },
+        "AvailabilityZone": "us-west-2a",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "Subnet1"
+          }
+        ]
+      }
+    },
+    "Subnet2": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "myVPC"
+        },
+        "CidrBlock": {
+          "Ref": "Subnet2CIDRBlock"
+        },
+        "AvailabilityZone": "us-west-2b",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "Subnet12"
+          }
+        ]
+      }
+    },
+    "igw": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "igw"
+          }
+        ]
+      }
+    },
+    "AttachGateway": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "myVPC"
+        },
+        "InternetGatewayId": {
+          "Ref": "igw"
+        }
+      }
+    },
+    "publicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "myVPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "PublicRouteTable"
+          }
+        ]
+      }
+    },
+    "igwRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "publicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "igw"
+        }
+      }
+    },
+    "subnetRouteTableAssociation2": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "Subnet2"
+        },
+        "RouteTableId": {
+          "Ref": "publicRouteTable"
+        }
+      }
+    },
+    "subnetRouteTableAssociation1": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "Subnet1"
+        },
+        "RouteTableId": {
+          "Ref": "publicRouteTable"
+        }
+      }
+    },
+    "MyEC2Instance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "InstanceAMI"
+        },
+        "KeyName": {
+          "Ref": "InstanceKey"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "NetworkInterfaces": [
+          {
+            "AssociatePublicIpAddress": "true",
+            "DeviceIndex": "0",
+            "SubnetId": {
+              "Ref": "Subnet1"
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "Instance1"
+          }
+        ]
+      }
+    }
+  }
+}
