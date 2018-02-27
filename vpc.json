@@ -11,11 +11,6 @@
       ],
       "Description": "Choose Instance Type"
     },
-    "InstanceKey": {
-      "Type": "String",
-      "Default": "javahome",
-      "Description": "Choose Key File"
-    },
     "VpcCIDRBlock": {
       "Type": "String",
       "Default": "190.17.0.0/16",
@@ -31,10 +26,20 @@
       "Default": "190.17.2.0/24",
       "Description": "Choose CIDR for Subnet2"
     },
-    "InstanceAMI": {
-      "Type": "String",
-      "Default": "ami-f2d3638a",
-      "Description": "Choose AMI for EC2 instance"
+    "InstanceKey": {
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Default": "javahome",
+      "Description": "Choose Key for EC2 instance"
+    }
+  },
+  "Mappings": {
+    "RegionMap": {
+      "us-east-1": {
+        "32": "ami-97785bed"
+      },
+      "us-west-2": {
+        "32": "ami-f2d3638a"
+      }
     }
   },
   "Resources": {
@@ -55,13 +60,21 @@
     "Subnet1": {
       "Type": "AWS::EC2::Subnet",
       "Properties": {
+        "MapPublicIpOnLaunch": true,
         "VpcId": {
           "Ref": "myVPC"
         },
         "CidrBlock": {
           "Ref": "Subnet1CIDRBlock"
         },
-        "AvailabilityZone": "us-west-2a",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
         "Tags": [
           {
             "Key": "Name",
@@ -73,13 +86,21 @@
     "Subnet2": {
       "Type": "AWS::EC2::Subnet",
       "Properties": {
+        "MapPublicIpOnLaunch": true,
         "VpcId": {
           "Ref": "myVPC"
         },
         "CidrBlock": {
           "Ref": "Subnet2CIDRBlock"
         },
-        "AvailabilityZone": "us-west-2b",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
         "Tags": [
           {
             "Key": "Name",
@@ -158,11 +179,39 @@
         }
       }
     },
-    "MyEC2Instance": {
+    "MyEC2Instance1": {
       "Type": "AWS::EC2::Instance",
       "Properties": {
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash\n",
+                "yum install httpd -y\n",
+                "service httpd start\n",
+                "chkconfig httpd on\n",
+                "echo 'Welcome to CF' > /var/www/html/index.html\n"
+              ]
+            ]
+          }
+        },
+        "SubnetId": {
+          "Ref": "Subnet1"
+        },
+        "SecurityGroupIds": [
+          {
+            "Ref": "sgtester"
+          }
+        ],
         "ImageId": {
-          "Ref": "InstanceAMI"
+          "Fn::FindInMap": [
+            "RegionMap",
+            {
+              "Ref": "AWS::Region"
+            },
+            "32"
+          ]
         },
         "KeyName": {
           "Ref": "InstanceKey"
@@ -170,20 +219,50 @@
         "InstanceType": {
           "Ref": "InstanceType"
         },
-        "NetworkInterfaces": [
-          {
-            "AssociatePublicIpAddress": "true",
-            "DeviceIndex": "0",
-            "SubnetId": {
-              "Ref": "Subnet1"
-            }
-          }
-        ],
         "Tags": [
           {
             "Key": "Name",
             "Value": "Instance1"
           }
+        ]
+      }
+    },
+    "sgtester": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "DependsOn": "myVPC",
+      "Properties": {
+        "GroupName": "PublicSecurityGroup",
+        "GroupDescription": "vpc tester sg",
+        "VpcId": {
+          "Ref": "myVPC"
+        }
+      }
+    },
+    "sgtesteringress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "sgtester",
+      "Properties": {
+        "GroupId": {
+          "Ref": "sgtester"
+        },
+        "IpProtocol": "-1",
+        "CidrIp": "0.0.0.0/0"
+      }
+    }
+  },
+  "Outputs": {
+    "InstanceID": {
+      "Description": "The Instance ID",
+      "Value": {
+        "Ref": "MyEC2Instance1"
+      }
+    },
+    "InstancePublicIP": {
+      "Description": "The Instance ID",
+      "Value": {
+        "Fn::GetAtt": [
+          "MyEC2Instance1",
+          "PublicIp"
         ]
       }
     }
